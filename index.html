@@ -1,138 +1,99 @@
 <!doctype html>
-<html lang="en" data-state="loading">
+<html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; style-src 'self'; img-src data:; media-src blob:; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data:; style-src 'self'; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="referrer" content="no-referrer">
-<title>Recording inspector</title>
+<meta name="description" content="Open tools for looking at recordings of the Pirahã language: a recording inspector that runs in the browser and an experimental phoneme model.">
+<title>Pirahã recording tools</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="style.css">
-<script type="module" src="app.js"></script>
+<link rel="stylesheet" href="site.css">
 </head>
 <body>
-<header class="top">
-  <h1>Recording inspector</h1>
-  <p class="lede">Signal measurements of a 16-bit PCM WAV file, computed inside this page.
-    The file is not uploaded: the page's security policy blocks every network connection.</p>
-  <p id="model-line" class="lede" hidden>For recordings of Pirahã, the page also shows phoneme and word
-    candidates from an experimental model. They are a machine's reading of the sound, not a transcription.</p>
-</header>
+<nav class="nav" aria-label="Site">
+  <a class="name" href="index.html">Pirahã recording tools</a>
+  <a href="index.html" aria-current="page">Project</a>
+  <a href="tool/">Recording inspector</a>
+  <a href="news.html">News</a>
+  <a href="terms.html">Terms</a>
+</nav>
 
 <main>
-  <section class="chooser" aria-label="File">
-    <label class="button" for="file">Choose a WAV file</label>
-    <input id="file" class="visually-hidden" type="file" accept=".wav,.wave,audio/wav,audio/x-wav">
-    <span class="hint">or drop one anywhere on this page</span>
-    <span id="status" class="status" role="status">Starting the analysis module…</span>
+<div class="hero">
+  <img src="images/rio-maici.jpg" width="1600" height="736" alt="The Maici river, calm water reflecting the forest on its bank.">
+  <div class="hero-text">
+    <h1>Tools for listening closely to Pirahã recordings</h1>
+    <p>A recording inspector that runs in your browser, and a first, experimental phoneme model built from public archives.</p>
+  </div>
+</div>
+<p class="credit">The Maici river, along which the Pirahã live. Photograph: Mariana PA Vasconcelos, CC BY-SA 4.0.</p>
+
+<div class="prose">
+  <p class="lede">Pirahã is spoken by a few hundred people along the Maici river in the Brazilian state of Amazonas.
+    It has one of the smallest sound inventories described for any language, and decades of field recordings of it
+    exist, most of them without a transcription aligned to the sound.</p>
+  <p>This project builds small, open tools that help a person work through such recordings: see where there is
+    speech, hear a precise stretch again, and get a first machine reading to correct. The tools are made by a
+    software engineer, not a linguist. They propose candidates; they do not transcribe, and nothing they show has been
+    checked by a speaker of the language.</p>
+  <div class="actions">
+    <a class="button" href="tool/">Open the recording inspector</a>
+    <a class="button quiet" href="news.html">Read how the model was made</a>
+  </div>
+</div>
+
+<h2>What is here</h2>
+<div class="cards">
+  <section class="card">
+    <h3>Recording inspector</h3>
+    <p>Choose a 16-bit WAV file: levels, an overview spectrogram, activity spans, playback by click. The file stays on
+      your computer; the page is not allowed any network connection.</p>
   </section>
-
-  <section id="progress" class="progress" hidden>
-    <progress id="bar" max="1" value="0" aria-label="Analysis progress"></progress>
-    <span id="progress-text"></span>
-    <button id="cancel" type="button">Cancel</button>
+  <section class="card">
+    <h3>Phoneme candidates</h3>
+    <p>For Pirahã recordings, a small model scores the 11 phonemes of the archive's transcriptions every 20 ms
+      and shows what it reads, in a view you can zoom and play.</p>
   </section>
-
-  <p id="error" class="error" role="alert" hidden></p>
-
-  <section id="result" hidden>
-    <h2 id="name"></h2>
-
-    <div class="timeline">
-      <div class="labels" aria-hidden="true">
-        <div id="channel-labels" class="label-envelope"></div>
-        <div class="label-spectrogram">
-          <span>Spectrogram</span>
-          <select id="channel" aria-label="Channel shown in the spectrogram"></select>
-          <span class="scale">−100 to −40 dBFS/Hz</span>
-        </div>
-        <div class="label-bands"><span>Activity</span><span>Low level</span></div>
-        <div class="label-axis">Time</div>
-      </div>
-      <div id="plots" class="plots" tabindex="0" role="group"
-           aria-label="Timeline. Click to move the playback position; arrow keys move it by one second.">
-        <canvas id="envelope" class="plot-envelope"></canvas>
-        <canvas id="spectrogram" class="plot-spectrogram"></canvas>
-        <canvas id="bands" class="plot-bands"></canvas>
-        <canvas id="axis" class="plot-axis"></canvas>
-        <div id="window" class="window" hidden></div>
-        <div id="cursor" class="cursor"></div>
-      </div>
-    </div>
-    <p id="readout" class="readout">Move the pointer over the timeline to read a frame; click to move the playback position.</p>
-    <audio id="player" controls preload="metadata"></audio>
-
-    <section id="phonemes" class="phonemes" aria-labelledby="phonemes-title" hidden>
-      <h3 id="phonemes-title">Phoneme and word candidates <span class="tag">experimental</span></h3>
-      <p class="note">What a small model, trained on Pirahã word lists, reads in the sound. It assumes the
-        recording is Pirahã speech and has no notion of tone. Nothing here was checked by a person.</p>
-
-      <div class="detail-tools">
-        <button id="earlier" type="button" aria-label="Earlier">◀</button>
-        <button id="later" type="button" aria-label="Later">▶</button>
-        <span id="window-text" class="window-text"></span>
-        <button id="zoom-out" type="button" aria-label="Show a longer stretch">−</button>
-        <button id="zoom-in" type="button" aria-label="Show a shorter stretch">+</button>
-        <button id="play-window" type="button">Play this stretch</button>
-      </div>
-
-      <div class="timeline">
-        <div class="labels" aria-hidden="true">
-          <div id="word-lane-label" class="label-words">Words</div>
-          <div class="label-letters">Phonemes</div>
-          <div id="score-labels" class="label-scores"></div>
-          <div class="label-detail-envelope">Envelope</div>
-          <div class="label-axis">Time</div>
-        </div>
-        <div id="detail" class="plots" tabindex="0" role="group"
-             aria-label="Detail. Click to move the playback position, or on a word candidate to hear it; arrow keys move by a tenth of a second; plus and minus change the stretch shown.">
-          <canvas id="detail-words" class="plot-words"></canvas>
-          <canvas id="detail-letters" class="plot-letters"></canvas>
-          <canvas id="detail-scores" class="plot-scores"></canvas>
-          <canvas id="detail-envelope" class="plot-detail-envelope"></canvas>
-          <canvas id="detail-axis" class="plot-axis"></canvas>
-          <div id="detail-cursor" class="cursor"></div>
-        </div>
-      </div>
-      <p id="detail-readout" class="readout">Each row of the middle plot is one phoneme; the darker a cell, the higher its score in those 20 ms. Click a word candidate to hear it.</p>
-
-      <div id="word-tools" class="word-tools">
-        <label for="fit">Word candidates with a fit of at least <output id="fit-value" for="fit"></output></label>
-        <input id="fit" type="range" min="-0.7" max="-0.05" step="0.05" value="-0.45">
-        <span id="word-count" class="hint"></span>
-        <div id="word-table" class="word-table">
-          <table>
-            <thead><tr><th>Hear</th><th>Entry</th><th>Gloss in the word list</th><th>Fit</th></tr></thead>
-            <tbody id="word-rows"></tbody>
-          </table>
-        </div>
-        <p class="note">A word candidate is a stretch whose phoneme scores resemble an entry of the word list;
-          the fit is 0 when the model reads exactly that entry and is sure of it. The list knows only its own
-          entries, so other words can show up as the entry they most resemble. Glosses are quoted from the list.</p>
-      </div>
-
-      <details class="about-model">
-        <summary>About the model</summary>
-        <div id="model-card"></div>
-      </details>
-    </section>
-
-    <div id="summary" class="summary"></div>
-
-    <section class="exports" aria-label="Results as files">
-      <h3>Results as files</h3>
-      <div id="export-buttons" class="export-buttons"></div>
-      <p class="note">The tables are time-coded measurements of the recording. Keep them with the same care
-        as the recording itself, outside the repository.</p>
-    </section>
-
-    <p class="note">The measurements above are of the signal: they do not identify speech, speakers or words.
-      No candidate on this page, of a phoneme or of a word, is a validated annotation.</p>
+  <section class="card">
+    <h3>Word candidates</h3>
+    <p>Stretches that resemble an entry of the UCLA word lists, with the list's gloss. Click one to hear it. Most are
+      wrong today; they are a place to start listening.</p>
   </section>
+</div>
+
+<figure>
+  <a href="tool/"><img src="images/inspector-ucla-43.png" width="1260" height="942"
+    alt="The recording inspector: waveform envelope, spectrogram and activity bands of a 53-second recording, and below them a detail view with a word candidate, phoneme letters and one row of scores per phoneme."></a>
+  <figcaption>The inspector on recording 43 of the UCLA Phonetics Lab Archive's Pirahã word lists (1995), which the
+    model never saw in training. The recording is the archive's, CC BY-NC 2.0.</figcaption>
+</figure>
+
+<div class="prose">
+  <h2>What it is built from</h2>
+  <p>Only public material: the Pirahã recordings and word lists of the
+    <a href="https://archive.phonetics.ucla.edu/Language/MYP/myp.html">UCLA Phonetics Lab Archive</a> (CC BY-NC 2.0)
+    for training, and one recorded story of the <a href="https://github.com/languageMIT/piraha">MIT Pirahã corpus</a>
+    (CC BY-SA 4.0) for a test the training never saw. No recording is hosted on this site.</p>
+
+  <h2>How far it can be trusted</h2>
+  <p class="note">Not far yet. On speakers the model never heard, about four phonemes in ten differ from the
+    automatically made reference, and fewer than half of the word candidates fall on the right word. The
+    <a href="news.html">news page</a> gives the figures and how they were measured.</p>
+  <p>The recordings are of Pirahã speakers, made by fieldworkers and published by the archive. If you belong to the
+    community, or work with it, and see something here that should be changed or removed, please
+    <a href="https://github.com/smichea/piraha-recording-inspector/issues">say so</a>.</p>
+</div>
 </main>
 
-<footer class="bottom">
-  <span id="version"></span>
+<footer class="foot">
+  <p>An independent, noncommercial research project. It is not affiliated with the UCLA Phonetics Lab Archive, MIT or any
+    other institution named on these pages.</p>
+  <p>Photograph of the Maici river: Mariana PA Vasconcelos,
+    <a href="https://commons.wikimedia.org/wiki/File:Espelho_do_Rio_Maici.jpg">Wikimedia Commons</a>,
+    <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a>, cropped and resized.
+    <a href="terms.html">Terms and licences</a> ·
+    <a href="https://github.com/smichea/piraha-recording-inspector">Source of this site</a></p>
 </footer>
 </body>
 </html>

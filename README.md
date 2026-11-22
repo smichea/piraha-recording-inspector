@@ -1,23 +1,15 @@
-# Recording inspector
+# Pirahã recording tools
 
-A web page that measures a 16-bit PCM WAV recording inside the browser: levels,
-an overview spectrogram, candidate activity spans. For recordings of Pirahã it
-also shows phoneme and word candidates from a small experimental model.
+The built copy of <https://smichea.github.io/piraha-recording-inspector/>: a
+home page, a news page, terms, and under `tool/` the recording inspector with
+an experimental Pirahã phoneme model.
 
-**The recording you choose is not uploaded.** The page's security policy
-forbids it, and its worker, every network connection; the analysis module is
-WebAssembly without any import. Your browser itself, and its extensions, are
-outside the page's control.
+The inspector measures a 16-bit PCM WAV recording inside the browser and does
+not upload it. Its phoneme and word candidates are a machine's reading, not a
+transcription; most word candidates are wrong.
 
-**The phoneme and word candidates are a machine's reading, not a
-transcription.** The model was trained on word lists with automatically made
-labels that no person checked; most word candidates are wrong. Its figures and
-limits are in the page, under "About the model".
-
-The model and the word list are derived from the Pirahã recordings and word
-lists of the UCLA Phonetics Lab Archive and are offered under the archive's
-noncommercial terms; see [NOTICE.txt](NOTICE.txt). The page's code is under
-the licence in [LICENSE.txt](LICENSE.txt).
-
-This directory is a built copy: `index.html` and the files next to it are
-everything the page needs.
+Licences: code under MIT ([LICENSE.txt](LICENSE.txt)); the model, the word
+list and the screenshot derive from the UCLA Phonetics Lab Archive and carry
+its noncommercial terms ([NOTICE.txt](NOTICE.txt)); the photograph of the
+Maici river is by Mariana PA Vasconcelos, CC BY-SA 4.0. Details in
+[terms.html](terms.html).

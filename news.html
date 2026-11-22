@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data:; style-src 'self'; base-uri 'none'; form-action 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="description" content="News of the project: how the first Pirahã phoneme model was built on 22 November 2026.">
+<title>News · Pirahã recording tools</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="site.css">
+</head>
+<body>
+<nav class="nav" aria-label="Site">
+  <a class="name" href="index.html">Pirahã recording tools</a>
+  <a href="index.html">Project</a>
+  <a href="tool/">Recording inspector</a>
+  <a href="news.html" aria-current="page">News</a>
+  <a href="terms.html">Terms</a>
+</nav>
+
+<main>
+<div class="prose">
+  <h1>News</h1>
+
+  <article class="news-item" id="2026-11-22-phoneme-model">
+    <p class="dated">22 November 2026</p>
+    <h2>A first phoneme model, built in a day from public archives</h2>
+    <p class="lede">The recording inspector now shows phoneme and word candidates for Pirahã recordings. This note
+      says which architecture was chosen, how the model was trained without any hand-made alignment, and what the
+      result is worth.</p>
+
+    <h3>The problem: sound and words, but not where the words are</h3>
+    <p>The UCLA Phonetics Lab Archive publishes 76 Pirahã recordings made in 1995 with 15 speakers, and 19 word
+      lists with a phonetic transcription and an English gloss for each entry. The index says which entries each
+      recording goes through. It does not say when. In a recording each entry is said several times, by the speaker
+      and, more quietly, by a fieldworker prompting, with other talk in between. Training a recogniser needs to know
+      which stretch of sound is which word.</p>
+
+    <h3>Step 1: a borrowed ear</h3>
+    <p>A general-purpose phone recogniser (<code>wav2vec2-xlsr-53-espeak-cv-ft</code>, trained on other languages)
+      was run locally on 23 recordings chosen to cover the speakers. Its 392 phone symbols were folded into the
+      11 phonemes of the archive's transcriptions, <code>p t k ʔ b g s h a i o</code>, following the allophones
+      described for the language: /b/ may sound [m], /g/ may sound [n], and so on. It is a large model and slow without a graphics card, which is why it was used on a part of the recordings only.</p>
+
+    <h3>Step 2: placing the words</h3>
+    <p>For each recording, a Viterbi search finds the best walk through the scores that says the list's entries in
+      order, each any number of times, with anything else allowed in between and a cost for skipping an entry. Every
+      word placed gets a score, and poorly matched ones are left out, as are the entries the archive itself marks
+      as bad utterances.</p>
+
+    <h3>Step 3: a small model of its own, in two rounds</h3>
+    <p>A first model was trained on the words placed in step 2. It then scored the other 51 recordings, far faster than the borrowed recogniser, and their words were placed the same way. A second model was trained on all 74 word-list
+      recordings: 3,796 spoken words, 43.5 minutes, from 11 speakers, the fieldworkers' quiet prompts included. Two speakers were set aside for testing and
+      two for choosing when to stop, before any training.</p>
+
+    <h3>The architecture</h3>
+    <div class="table-scroll">
+    <table>
+      <tr><th>Part</th><th>Choice</th></tr>
+      <tr><td>Input</td><td>Mono audio at 16 kHz; 40 mel bands from 60 to 7,600 Hz, 25 ms windows every 10 ms</td></tr>
+      <tr><td>Normalisation</td><td>Per-channel energy normalisation (PCEN): each band divided by a slow running
+        average of itself, then a square root. It removes most of the effect of recording level and steady noise.</td></tr>
+      <tr><td>Network</td><td>Six one-dimensional convolutions of 96 channels and width 5. The second halves the
+        rate; the last four are residual, with dilations 1, 2, 4, 1. Batch normalisation and a rectifier after each.</td></tr>
+      <tr><td>Context</td><td>Each output looks at about 0.7 s of sound</td></tr>
+      <tr><td>Output</td><td>Every 20 ms, a probability for each of the 11 phonemes and for “nothing new”</td></tr>
+      <tr><td>Size</td><td>251,340 weights, a file of about 1 MB</td></tr>
+      <tr><td>Loss</td><td>Connectionist temporal classification: it needs the phoneme string of a word, not the
+        position of each phoneme</td></tr>
+    </table>
+    </div>
+    <p>A convolutional network this small was chosen for three reasons. Forty minutes of labelled speech cannot
+      feed a large model. The model has to run in a web page, on a recording of any length, without a server. And
+      a model with a short, fixed context can be run in pieces as the file is read, with the same result whatever
+      the size of the pieces.</p>
+
+    <h3>Training</h3>
+    <p>AdamW with a one-cycle learning rate up to 0.003, batches of 32 words, 45 passes over the data, dropout of
+      0.15 in the residual layers, on a CPU, without a graphics card. Every example is
+      altered at random each time it is used (speed, tone balance, band limit, added hiss or rumble, mains hum,
+      level, overload, a few hidden bands), so that the model depends less on the clean digital sound of the
+      archive's recordings.</p>
+
+    <h3>In the browser</h3>
+    <p>The features and the network were written a second time in Rust, without any machine-learning library, and
+      compiled to WebAssembly with the rest of the inspector. On one recording the two implementations agree to
+      about one part in a million. The
+      chosen file is never uploaded: the page and its worker are refused every network connection by their
+      security policy, and an automated check verifies it.</p>
+
+    <figure>
+      <a href="tool/"><img src="images/inspector-ucla-43.png" width="1260" height="942"
+        alt="The inspector's detail view: a word candidate box, phoneme letters above one row of scores per phoneme, and the waveform envelope."></a>
+      <figcaption>The detail view on a UCLA recording of a test speaker. Each row of the lower plot is one phoneme;
+        the brighter a cell, the higher its score in those 20 ms. The list has <em>pasi</em> (a fruit) at this point; the model read
+        <em>paʔa</em> and proposed another entry, a fish. Recording: UCLA Phonetics Lab Archive, CC BY-NC 2.0.</figcaption>
+    </figure>
+
+    <h3>What it is worth</h3>
+    <div class="table-scroll">
+    <table>
+      <tr><th>Measurement</th><th>Result</th></tr>
+      <tr><td>Phoneme errors, two speakers never heard in training</td><td>39.7 % over 432 words</td></tr>
+      <tr><td>Phoneme errors, the two speakers used to choose when to stop</td><td>31.5 % over 372 words</td></tr>
+      <tr><td>Word candidates on three recordings of the test speakers</td><td>19 of 72 on the right word; 10 of 25
+        at the stricter setting the page starts with</td></tr>
+      <tr><td>One story of the MIT corpus: connected speech, another speaker, MP3</td><td>209 phonemes read where
+        the transcription has 356</td></tr>
+    </table>
+    </div>
+    <p>Three things to keep in mind when reading these numbers.</p>
+    <ul>
+      <li><strong>No person checked the labels.</strong> The reference was made by the same automatic procedure as
+        the training labels. A word placed slightly wrong, or pronounced differently from the list's transcription,
+        counts as an error of the model. The true error rate is unknown.</li>
+      <li><strong>Word candidates are mostly wrong.</strong> The lists are sets of similar words, built to compare
+        sounds, so a near miss is the usual case. The page shows candidates as something to listen to, not as
+        findings.</li>
+      <li><strong>Connected speech is harder.</strong> The model learned from single words read from lists. On the
+        story it misses many phonemes, and the second round of training, with four times the data, did no better
+        there than the first.</li>
+    </ul>
+    <p>The model knows nothing about tone or vowel length, which matter in Pirahã, and it has no way to say “this
+      is not Pirahã”: other speech comes out as Pirahã phonemes.</p>
+
+    <h3>What would help next</h3>
+    <p>A few minutes of recording with a transcription checked by a speaker or a linguist would give a real error
+      figure and better labels. Connected speech needs connected-speech training material, and the one public
+      story found so far is too short to train on and test on.</p>
+    <p><a class="button" href="tool/">Try the inspector</a></p>
+  </article>
+</div>
+</main>
+
+<footer class="foot">
+  <p>An independent, noncommercial research project. It is not affiliated with the UCLA Phonetics Lab Archive, MIT or any
+    other institution named on these pages.</p>
+  <p>Photograph of the Maici river: Mariana PA Vasconcelos,
+    <a href="https://commons.wikimedia.org/wiki/File:Espelho_do_Rio_Maici.jpg">Wikimedia Commons</a>,
+    <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a>, cropped and resized.
+    <a href="terms.html">Terms and licences</a> ·
+    <a href="https://github.com/smichea/piraha-recording-inspector">Source of this site</a></p>
+</footer>
+</body>
+</html>
