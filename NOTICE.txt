@@ -1,0 +1,32 @@
+Recording inspector
+===================
+
+A page that measures a 16-bit PCM WAV file inside the browser. The file a
+visitor chooses is not uploaded: the page's security policy forbids it every
+network connection, and the analysis module has no access to the network.
+
+Phoneme model and word list
+---------------------------
+
+phoneme_model.js and phoneme_words.js are derived from the Pirahã (MYP)
+recordings and word lists of the UCLA Phonetics Lab Archive, recorded in 1995:
+
+    2007. The UCLA Phonetics Lab Archive. Los Angeles, CA: UCLA Department of
+    Linguistics. http://archive.phonetics.ucla.edu/
+
+The archive's material is under a Creative Commons licence (Attribution-
+NonCommercial 2.0 Generic, https://creativecommons.org/licenses/by-nc/2.0/),
+and its site asks that derivatives be shared under the same terms. These two
+files are offered under those terms: noncommercial use, with attribution to
+the UCLA Phonetics Lab Archive. The glosses in the word list are quoted from
+the archive's word lists.
+
+The model gives candidates, not transcriptions. Its figures and limits are in
+the page, under "About the model".
+
+Everything else
+---------------
+
+The page's own code (HTML, CSS, JavaScript, and the analysis module compiled
+from Rust) is original work of this project. It is under the MIT licence: see LICENSE.txt.
+

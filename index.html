@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en" data-state="loading">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; style-src 'self'; img-src data:; media-src blob:; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Recording inspector</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="style.css">
+<script type="module" src="app.js"></script>
+</head>
+<body>
+<header class="top">
+  <h1>Recording inspector</h1>
+  <p class="lede">Signal measurements of a 16-bit PCM WAV file, computed inside this page.
+    The file is not uploaded: the page's security policy blocks every network connection.</p>
+  <p id="model-line" class="lede" hidden>For recordings of Pirahã, the page also shows phoneme and word
+    candidates from an experimental model. They are a machine's reading of the sound, not a transcription.</p>
+</header>
+
+<main>
+  <section class="chooser" aria-label="File">
+    <label class="button" for="file">Choose a WAV file</label>
+    <input id="file" class="visually-hidden" type="file" accept=".wav,.wave,audio/wav,audio/x-wav">
+    <span class="hint">or drop one anywhere on this page</span>
+    <span id="status" class="status" role="status">Starting the analysis module…</span>
+  </section>
+
+  <section id="progress" class="progress" hidden>
+    <progress id="bar" max="1" value="0" aria-label="Analysis progress"></progress>
+    <span id="progress-text"></span>
+    <button id="cancel" type="button">Cancel</button>
+  </section>
+
+  <p id="error" class="error" role="alert" hidden></p>
+
+  <section id="result" hidden>
+    <h2 id="name"></h2>
+
+    <div class="timeline">
+      <div class="labels" aria-hidden="true">
+        <div id="channel-labels" class="label-envelope"></div>
+        <div class="label-spectrogram">
+          <span>Spectrogram</span>
+          <select id="channel" aria-label="Channel shown in the spectrogram"></select>
+          <span class="scale">−100 to −40 dBFS/Hz</span>
+        </div>
+        <div class="label-bands"><span>Activity</span><span>Low level</span></div>
+        <div class="label-axis">Time</div>
+      </div>
+      <div id="plots" class="plots" tabindex="0" role="group"
+           aria-label="Timeline. Click to move the playback position; arrow keys move it by one second.">
+        <canvas id="envelope" class="plot-envelope"></canvas>
+        <canvas id="spectrogram" class="plot-spectrogram"></canvas>
+        <canvas id="bands" class="plot-bands"></canvas>
+        <canvas id="axis" class="plot-axis"></canvas>
+        <div id="window" class="window" hidden></div>
+        <div id="cursor" class="cursor"></div>
+      </div>
+    </div>
+    <p id="readout" class="readout">Move the pointer over the timeline to read a frame; click to move the playback position.</p>
+    <audio id="player" controls preload="metadata"></audio>
+
+    <section id="phonemes" class="phonemes" aria-labelledby="phonemes-title" hidden>
+      <h3 id="phonemes-title">Phoneme and word candidates <span class="tag">experimental</span></h3>
+      <p class="note">What a small model, trained on Pirahã word lists, reads in the sound. It assumes the
+        recording is Pirahã speech and has no notion of tone. Nothing here was checked by a person.</p>
+
+      <div class="detail-tools">
+        <button id="earlier" type="button" aria-label="Earlier">◀</button>
+        <button id="later" type="button" aria-label="Later">▶</button>
+        <span id="window-text" class="window-text"></span>
+        <button id="zoom-out" type="button" aria-label="Show a longer stretch">−</button>
+        <button id="zoom-in" type="button" aria-label="Show a shorter stretch">+</button>
+        <button id="play-window" type="button">Play this stretch</button>
+      </div>
+
+      <div class="timeline">
+        <div class="labels" aria-hidden="true">
+          <div id="word-lane-label" class="label-words">Words</div>
+          <div class="label-letters">Phonemes</div>
+          <div id="score-labels" class="label-scores"></div>
+          <div class="label-detail-envelope">Envelope</div>
+          <div class="label-axis">Time</div>
+        </div>
+        <div id="detail" class="plots" tabindex="0" role="group"
+             aria-label="Detail. Click to move the playback position, or on a word candidate to hear it; arrow keys move by a tenth of a second; plus and minus change the stretch shown.">
+          <canvas id="detail-words" class="plot-words"></canvas>
+          <canvas id="detail-letters" class="plot-letters"></canvas>
+          <canvas id="detail-scores" class="plot-scores"></canvas>
+          <canvas id="detail-envelope" class="plot-detail-envelope"></canvas>
+          <canvas id="detail-axis" class="plot-axis"></canvas>
+          <div id="detail-cursor" class="cursor"></div>
+        </div>
+      </div>
+      <p id="detail-readout" class="readout">Each row of the middle plot is one phoneme; the darker a cell, the higher its score in those 20 ms. Click a word candidate to hear it.</p>
+
+      <div id="word-tools" class="word-tools">
+        <label for="fit">Word candidates with a fit of at least <output id="fit-value" for="fit"></output></label>
+        <input id="fit" type="range" min="-0.7" max="-0.05" step="0.05" value="-0.45">
+        <span id="word-count" class="hint"></span>
+        <div id="word-table" class="word-table">
+          <table>
+            <thead><tr><th>Hear</th><th>Entry</th><th>Gloss in the word list</th><th>Fit</th></tr></thead>
+            <tbody id="word-rows"></tbody>
+          </table>
+        </div>
+        <p class="note">A word candidate is a stretch whose phoneme scores resemble an entry of the word list;
+          the fit is 0 when the model reads exactly that entry and is sure of it. The list knows only its own
+          entries, so other words can show up as the entry they most resemble. Glosses are quoted from the list.</p>
+      </div>
+
+      <details class="about-model">
+        <summary>About the model</summary>
+        <div id="model-card"></div>
+      </details>
+    </section>
+
+    <div id="summary" class="summary"></div>
+
+    <section class="exports" aria-label="Results as files">
+      <h3>Results as files</h3>
+      <div id="export-buttons" class="export-buttons"></div>
+      <p class="note">The tables are time-coded measurements of the recording. Keep them with the same care
+        as the recording itself, outside the repository.</p>
+    </section>
+
+    <p class="note">The measurements above are of the signal: they do not identify speech, speakers or words.
+      No candidate on this page, of a phoneme or of a word, is a validated annotation.</p>
+  </section>
+</main>
+
+<footer class="bottom">
+  <span id="version"></span>
+</footer>
+</body>
+</html>
