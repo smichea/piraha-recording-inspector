@@ -23,6 +23,23 @@
 <div class="prose">
   <h1>News</h1>
 
+  <article class="news-item" id="2026-11-23-periodicity-lane">
+    <p class="dated">23 November 2026</p>
+    <h2>Periodicity candidates in the detail view</h2>
+    <p class="lede">The <a href="tool/">recording inspector</a>'s detail view now draws the periodicity
+      candidates it measures, a few seconds at a time.</p>
+    <p>Each mark is a row of the result file <code>f0.tsv</code>: a rate at which 54 ms of sound nearly repeats
+      itself, found by an autocorrelation. The marks are drawn as they are, unjoined and unsmoothed, on a fixed
+      logarithmic scale from 70 to 500 Hz. They are not validated pitch: a mark, or a run of marks, can lie near
+      double or half the rate a listener would give, and a steady sound that is not a voice gives marks too.
+      Candidates are kept only inside activity spans, which a strip along the top of the lane shows; a voiced
+      stretch outside them has no mark. The page labels no tone.</p>
+    <p>The detail view now also appears for any recording, not only when the phoneme model is present. One
+      defect of the first version is fixed: the <span aria-hidden="true">◀ ▶</span> buttons of the detail view
+      had no lasting effect while playback was paused, because every redraw brought the view back to the
+      playback position. The phoneme model, the word list and the analysis itself are unchanged.</p>
+  </article>
+
   <article class="news-item" id="2026-11-22-phoneme-model">
     <p class="dated">22 November 2026</p>
     <h2>A first phoneme model, built in a day from public archives</h2>
