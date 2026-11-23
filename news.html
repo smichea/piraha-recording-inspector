@@ -23,6 +23,26 @@
 <div class="prose">
   <h1>News</h1>
 
+  <article class="news-item" id="2026-11-23-alignment-fix">
+    <p class="dated">23 November 2026</p>
+    <h2>A better phoneme model, after a fault in the training labels was found</h2>
+    <p class="lede">The model in the <a href="tool/">recording inspector</a> has been retrained. On words of
+      two speakers it never heard, it now gets about a quarter of the phonemes wrong instead of a third.</p>
+    <p>The training labels are made automatically: a search places the entries of each word list in its
+      recording. That search could place an entry any number of times at no cost. Entries made only of vowels
+      and glottal stops, such as <em>ʔií</em>, then matched almost any speech: one was placed more than 160 times
+      in each of 14 recordings, and such entries made more than half of all the placed words. The model learnt
+      from those wrong labels. The search now leaves such entries out and places an entry at most six times.</p>
+    <p>Scored on the same words of the two speakers kept apart, the new model makes 26.7 % phoneme errors
+      against 32.9 % for the model of 22 November, and reads 31 % of the words exactly against 17 %. On the one
+      recording of connected speech, a story from the MIT corpus, the edit distance to the transcription falls
+      from 65 % to 50 % of its length. A second training with another random start gave the same picture.
+      The model finds about three times as many of the list's words, but a smaller share of its word candidates
+      is right (about a third, against 40 %): most word candidates are still wrong.</p>
+    <p>All these figures are measured against labels made by machine, not by a person. The word list is
+      unchanged; the figures of 22 November below are those of the earlier model.</p>
+  </article>
+
   <article class="news-item" id="2026-11-23-periodicity-lane">
     <p class="dated">23 November 2026</p>
     <h2>Periodicity candidates in the detail view</h2>
