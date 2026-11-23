@@ -450,6 +450,7 @@ main > section > .note:last-child,
   --letter-lane: 30px;
   --score-lane: 15px;
   --detail-envelope: 48px;
+  --pitch-lane: 220px;
 }
 
 .phonemes {
@@ -559,6 +560,22 @@ button:disabled {
   height: var(--detail-envelope);
 }
 
+.label-pitch {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: var(--pitch-lane);
+  line-height: 1.35;
+}
+
+.label-pitch small {
+  font-size: 0.7rem;
+}
+
+.plot-pitch {
+  height: var(--pitch-lane);
+}
+
 .plots.on-word {
   cursor: pointer;
 }
@@ -651,6 +668,9 @@ button:disabled {
 }
 
 @media (max-width: 640px) {
+  :root {
+    --pitch-lane: 160px;
+  }
   #play-window {
     margin-left: 0;
   }

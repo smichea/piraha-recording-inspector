@@ -1,16 +1,20 @@
-// The detail view: a window of a few seconds with the phoneme scores of the
-// model and the word candidates, a list of the candidates, and what the model is.
+// The detail view: a window of a few seconds with the periodicity candidates
+// and the envelope and, when the page has the phoneme model, its scores, the
+// word candidates, a list of them, and what the model is.
 
-import { clock, themeColors } from "./draw.js";
+import { FRAME_S, clock, themeColors } from "./draw.js";
 import {
   FIRST_S,
   OUTPUTS,
+  PITCH_CENTRE_S,
   STEP_S,
   drawDetailAxis,
   drawDetailEnvelope,
   drawLetters,
+  drawPitch,
   drawScores,
   drawWords,
+  pitchStepAt,
   rowAt,
 } from "./detail.js";
 
@@ -18,6 +22,10 @@ const $ = (id) => document.getElementById(id);
 const SPANS = [1.5, 3, 6, 12, 24, 48];
 const LISTED = 400; // rows of the candidate list drawn at once
 const MINUS = "−";
+const HINT = "Move the pointer over the plots to read a time and its periodicity candidate; click to move the playback position.";
+const HINT_MODEL =
+  "Each row of the plot under the phonemes is one phoneme; the darker a cell, the higher its score in those 20 ms. " +
+  "Click a word candidate to hear it.";
 
 function element(tag, text, className) {
   const node = document.createElement(tag);
@@ -48,6 +56,7 @@ export function createPhonemeView({ player, seek, playSpan }) {
     peak: 1,
     start: 0,
     span: 6,
+    hint: HINT,
     letters: [],
     words: [],
     shown: [], // the words at or above the chosen fit
@@ -91,13 +100,12 @@ export function createPhonemeView({ player, seek, playSpan }) {
 
   function show(data, duration, peak) {
     const section = $("phonemes");
-    state.data = null;
-    section.hidden = true;
-    if (!data.scores) return;
+    const model = Boolean(data.scores);
+    const wordList = "words.tsv" in data.texts;
     state.data = data;
     state.duration = duration;
     state.peak = peak;
-    state.letters = table(data.texts["phonemes.tsv"]).map((row) => ({
+    state.letters = table(data.texts["phonemes.tsv"] ?? "time_s\n").map((row) => ({
       time: Number(row.time_s),
       phoneme: row.phoneme,
       probability: Number(row.probability),
@@ -112,13 +120,27 @@ export function createPhonemeView({ player, seek, playSpan }) {
     state.span = Math.min(6, Math.max(SPANS[0], duration));
     state.start = 0;
     state.active = null;
-    $("word-tools").hidden = !("words.tsv" in data.texts);
-    $("word-lane-label").hidden = $("detail-words").hidden = !("words.tsv" in data.texts);
+    // The lanes, notes and list of the phoneme model exist only with a model.
+    for (const id of ["detail-title-model", "model-note", "about-model"]) $(id).hidden = !model;
+    for (const id of ["letter-lane-label", "detail-letters", "score-labels", "detail-scores"]) $(id).hidden = !model;
+    $("word-tools").hidden = !wordList;
+    $("word-lane-label").hidden = $("detail-words").hidden = !wordList;
+    state.hint = model ? HINT_MODEL : HINT;
+    $("detail-readout").textContent = state.hint;
+    const { wav, pitch_channel_one_based: channel } = data.summary;
+    $("pitch-scale").textContent =
+      wav.channels > 1 ? `channel ${channel} of ${wav.channels} · 70 to 500 Hz, log scale` : "70 to 500 Hz, log scale";
     section.hidden = false;
     filter();
-    // Open on the first phoneme candidate rather than on leading silence.
-    if (state.letters.length > 0) moveTo(state.letters[0].time - 0.5);
+    // Open on the first candidate, of a phoneme or else of periodicity, rather than on leading silence.
+    const first = model ? state.letters[0]?.time : data.pitch.findIndex(Number.isFinite) * FRAME_S + PITCH_CENTRE_S;
+    if (first > 0) moveTo(first - 0.5);
     render();
+  }
+
+  function hide() {
+    state.data = null;
+    $("phonemes").hidden = true;
   }
 
   function filter() {
@@ -180,15 +202,24 @@ export function createPhonemeView({ player, seek, playSpan }) {
 
   const withinWindow = (seconds) => seconds >= state.start && seconds < state.start + state.span;
 
-  /** Keep the playback position in the window: turn the page while playing, centre after a jump. */
+  /**
+   * Keep the playback position in the window: turn the page while playing,
+   * centre after a jump. Called when the position changes, not when the
+   * window does, so that the window can be moved away from the position.
+   */
   function follow(seconds) {
     if (!state.data) return;
     if (!withinWindow(seconds)) {
       const turning = !player.paused && seconds >= state.start + state.span && seconds < state.start + state.span + 0.5;
       moveTo(turning ? seconds - 0.05 * state.span : seconds - state.span / 2);
     }
-    const x = ((seconds - state.start) / state.span) * plots.clientWidth;
-    $("detail-cursor").style.transform = `translateX(${x}px)`;
+    placeCursor(seconds);
+  }
+
+  function placeCursor(seconds) {
+    const cursor = $("detail-cursor");
+    cursor.hidden = seconds < state.start || seconds > state.start + state.span;
+    cursor.style.transform = `translateX(${((seconds - state.start) / state.span) * plots.clientWidth}px)`;
   }
 
   // -------------------------------------------------------------- drawing
@@ -210,8 +241,13 @@ export function createPhonemeView({ player, seek, playSpan }) {
     state.boxes = $("detail-words").hidden
       ? []
       : drawWords($("detail-words"), { words: state.shown, active: state.active, ...window }, colors);
-    drawLetters($("detail-letters"), { letters: state.letters, ...window }, colors);
-    drawScores($("detail-scores"), { scores: data.scores, ...window }, colors);
+    if (data.scores) {
+      drawLetters($("detail-letters"), { letters: state.letters, ...window }, colors);
+      drawScores($("detail-scores"), { scores: data.scores, ...window }, colors);
+    }
+    const marks = drawPitch($("detail-pitch"), { pitch: data.pitch, activity: data.activity, ...window }, colors);
+    // For automated checks of the page: the window drawn and its number of marks.
+    Object.assign(plots.dataset, { start: String(state.start), span: String(state.span), marks: String(marks) });
     drawDetailEnvelope(
       $("detail-envelope"),
       {
@@ -235,7 +271,7 @@ export function createPhonemeView({ player, seek, playSpan }) {
     marker.hidden = false;
     marker.style.left = `${(100 * state.start) / state.duration}%`;
     marker.style.width = `${Math.min(100, (100 * state.span) / state.duration)}%`;
-    follow(player.currentTime);
+    placeCursor(player.currentTime);
   }
 
   // ---------------------------------------------------------------- input
@@ -266,10 +302,10 @@ export function createPhonemeView({ player, seek, playSpan }) {
     const seconds = timeAt(event);
     const word = wordAt(event);
     plots.classList.toggle("on-word", word !== null);
-    const parts = [`Pointer at ${clock(seconds, 0.01)}`];
+    const parts = [`Pointer at ${clock(seconds, 0.01)}`, periodicityAt(seconds)];
     const row = rowAt(seconds);
     const { scores } = state.data;
-    if ((row + 1) * OUTPUTS.length <= scores.length) {
+    if (scores && (row + 1) * OUTPUTS.length <= scores.length) {
       const here = Array.from(scores.subarray(row * OUTPUTS.length, (row + 1) * OUTPUTS.length), (score, index) => ({
         name: index === 0 ? "nothing new" : OUTPUTS[index],
         share: Math.round((100 * score) / 255),
@@ -283,8 +319,35 @@ export function createPhonemeView({ player, seek, playSpan }) {
 
   plots.addEventListener("pointerleave", () => {
     plots.classList.remove("on-word");
-    $("detail-readout").textContent = DETAIL_HINT;
+    $("detail-readout").textContent = state.hint;
   });
+
+  /** What the periodicity lane holds under the pointer: every 20 ms step that falls on that pixel. */
+  function periodicityAt(seconds) {
+    const { pitch, activity } = state.data;
+    const first = pitchStepAt(seconds);
+    const last = Math.max(first, pitchStepAt(seconds + state.span / plots.clientWidth - 1e-9));
+    const found = [];
+    for (let step = Math.max(0, first); step <= Math.min(pitch.length - 1, last); step++) {
+      if (Number.isFinite(pitch[step])) found.push(pitch[step]);
+    }
+    if (last > first) {
+      const steps = last - first + 1;
+      if (found.length === 0) return `no periodicity candidate in the ${steps} steps of 20 ms under the pointer`;
+      const [low, high] = [Math.min(...found), Math.max(...found)];
+      const values = low === high ? `${low.toFixed(1)} Hz` : `${low.toFixed(1)} to ${high.toFixed(1)} Hz`;
+      return `periodicity candidates in ${found.length} of the ${steps} steps of 20 ms under the pointer: ${values}`;
+    }
+    if (found.length === 1) {
+      const semitones = 12 * Math.log2(found[0] / 100);
+      const side = semitones < 0 ? "below" : "above";
+      return `periodicity candidate ${found[0].toFixed(1)} Hz, ${Math.abs(semitones).toFixed(1)} semitones ${side} 100 Hz`;
+    }
+    for (let index = 0; index < activity.length; index += 2) {
+      if (first >= activity[index] && first < activity[index + 1]) return "no periodicity candidate for the 54 ms centred here";
+    }
+    return "no periodicity candidate is kept here: this 20 ms step is outside the activity spans";
+  }
 
   plots.addEventListener("keydown", (event) => {
     if (!state.data) return;
@@ -297,7 +360,6 @@ export function createPhonemeView({ player, seek, playSpan }) {
     event.preventDefault();
   });
 
-  const DETAIL_HINT = $("detail-readout").textContent;
   $("zoom-in").addEventListener("click", () => zoom(-1));
   $("zoom-out").addEventListener("click", () => zoom(1));
   $("earlier").addEventListener("click", () => moveTo(state.start - 0.8 * state.span));
@@ -309,7 +371,7 @@ export function createPhonemeView({ player, seek, playSpan }) {
   // The lane labels of the score plot: one per phoneme.
   $("score-labels").replaceChildren(...OUTPUTS.slice(1).map((phoneme) => element("span", phoneme)));
 
-  return { describe, show, follow, render: queue, hide: () => show({ scores: null }, 0, 1) };
+  return { describe, show, follow, render: queue, hide };
 }
 
 export { FIRST_S, STEP_S };
