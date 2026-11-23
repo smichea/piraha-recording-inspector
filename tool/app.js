@@ -210,7 +210,7 @@ function render() {
 
   drawBands($("bands"), { activity: data.activity, silence: data.silence, duration }, colors);
   drawAxis($("axis"), duration, colors);
-  moveCursor();
+  placeCursor();
   phonemeView.render();
 }
 
@@ -229,10 +229,16 @@ matchMedia("(prefers-color-scheme: dark)").addEventListener("change", queueRende
 
 // ---------------------------------------------------- playback and pointer
 
-function moveCursor() {
+function placeCursor() {
   if (!view.result) return;
   const x = (player.currentTime / view.duration) * plots.clientWidth;
   $("cursor").style.transform = `translateX(${Math.min(x, plots.clientWidth)}px)`;
+}
+
+/** The playback position changed: move both cursors, and the detail window with it. */
+function moveCursor() {
+  if (!view.result) return;
+  placeCursor();
   phonemeView.follow(player.currentTime);
 }
 

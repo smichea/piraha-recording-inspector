@@ -64,9 +64,12 @@
     <audio id="player" controls preload="metadata"></audio>
 
     <section id="phonemes" class="phonemes" aria-labelledby="phonemes-title" hidden>
-      <h3 id="phonemes-title">Phoneme and word candidates <span class="tag">experimental</span></h3>
-      <p class="note">What a small model, trained on Pirahã word lists, reads in the sound. It assumes the
-        recording is Pirahã speech and has no notion of tone. Nothing here was checked by a person.</p>
+      <h3 id="phonemes-title">Detail<span id="detail-title-model">: phoneme and word candidates
+        <span class="tag">experimental</span></span></h3>
+      <p id="model-note" class="note">The words, the phonemes and the rows of scores are what a small model,
+        trained on Pirahã word lists, reads in the sound. It assumes the recording is Pirahã speech and has no
+        notion of tone: it does not use the periodicity candidates. Those and the envelope are measurements of
+        the signal and do not come from the model. Nothing here was checked by a person.</p>
 
       <div class="detail-tools">
         <button id="earlier" type="button" aria-label="Earlier">◀</button>
@@ -80,22 +83,33 @@
       <div class="timeline">
         <div class="labels" aria-hidden="true">
           <div id="word-lane-label" class="label-words">Words</div>
-          <div class="label-letters">Phonemes</div>
+          <div id="letter-lane-label" class="label-letters">Phonemes</div>
           <div id="score-labels" class="label-scores"></div>
+          <div class="label-pitch"><span>Periodicity candidates</span><small id="pitch-scale"></small></div>
           <div class="label-detail-envelope">Envelope</div>
           <div class="label-axis">Time</div>
         </div>
         <div id="detail" class="plots" tabindex="0" role="group"
-             aria-label="Detail. Click to move the playback position, or on a word candidate to hear it; arrow keys move by a tenth of a second; plus and minus change the stretch shown.">
+             aria-label="Detail. Click to move the playback position, or on a word candidate to hear it; arrow keys move by a tenth of a second; plus and minus change the stretch shown. The periodicity candidates drawn here are the rows of the result file f0.tsv.">
           <canvas id="detail-words" class="plot-words"></canvas>
           <canvas id="detail-letters" class="plot-letters"></canvas>
           <canvas id="detail-scores" class="plot-scores"></canvas>
+          <canvas id="detail-pitch" class="plot-pitch"></canvas>
           <canvas id="detail-envelope" class="plot-detail-envelope"></canvas>
           <canvas id="detail-axis" class="plot-axis"></canvas>
           <div id="detail-cursor" class="cursor"></div>
         </div>
       </div>
-      <p id="detail-readout" class="readout">Each row of the middle plot is one phoneme; the darker a cell, the higher its score in those 20 ms. Click a word candidate to hear it.</p>
+      <p id="detail-readout" class="readout"></p>
+      <p id="pitch-note" class="note">Periodicity candidates: each mark is a row of f0.tsv, a rate at which
+        54 ms of sound, voice or not, nearly repeats itself, found by an autocorrelation and drawn at the middle
+        of those 54 ms. The page draws the rows as they are, without smoothing or joining them. They are not
+        validated pitch, and the page reads no tone from them. A mark, or a whole run of marks, can lie near
+        double or half the rate a listener would give, and a steady sound that is not a voice gives marks too;
+        nothing here tells these apart. A value is always 8,000 Hz divided by a whole number from 17 to 113
+        (70.8 to 470.6 Hz), so it moves in steps: about 0.3 semitone near 150 Hz, 0.6 near 300 Hz, 1 near 450 Hz.
+        The scale is logarithmic, with a line every two semitones and labels an octave apart. The strip along
+        the top marks the 20 ms steps inside activity spans: a candidate is kept only there.</p>
 
       <div id="word-tools" class="word-tools">
         <label for="fit">Word candidates with a fit of at least <output id="fit-value" for="fit"></output></label>
@@ -112,7 +126,7 @@
           entries, so other words can show up as the entry they most resemble. Glosses are quoted from the list.</p>
       </div>
 
-      <details class="about-model">
+      <details id="about-model" class="about-model">
         <summary>About the model</summary>
         <div id="model-card"></div>
       </details>
@@ -128,7 +142,7 @@
     </section>
 
     <p class="note">The measurements above are of the signal: they do not identify speech, speakers or words.
-      No candidate on this page, of a phoneme or of a word, is a validated annotation.</p>
+      No candidate on this page, of periodicity, of a phoneme or of a word, is a validated annotation.</p>
   </section>
 </main>
 

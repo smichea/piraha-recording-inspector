@@ -1,5 +1,6 @@
 // Canvas drawing for the detail view: a window of a few seconds with the
-// phoneme scores and the word candidates. Times are in seconds.
+// phoneme scores, the word candidates and the periodicity candidates. Times
+// are in seconds.
 
 import { FRAME_S, clock, prepare } from "./draw.js";
 
@@ -134,6 +135,100 @@ export function drawWords(canvas, { words, start, span, active }, colors) {
     context.restore();
   }
   return boxes;
+}
+
+// ------------------------------------------------- periodicity candidates
+//
+// `pitch` holds one value per 20 ms step: the candidate in hertz, or NaN.
+// Step i was measured on the 54.25 ms that start at i * 20 ms; f0.tsv gives
+// the middle of that stretch, and so does this lane. A mark covers the 20 ms
+// around that middle.
+
+/** Seconds from the start of a 20 ms step to the middle of the stretch its candidate was measured on. */
+export const PITCH_CENTRE_S = 0.027125;
+
+// The scale: logarithmic and the same for every recording and every window.
+// A candidate is 8000 Hz over a whole number of samples; the scale runs half
+// a sample beyond the search bounds of 16 and 114 samples (500 and 70 Hz).
+export const PITCH_LOW_HZ = 8000 / 114.5;
+export const PITCH_HIGH_HZ = 8000 / 15.5;
+/** Lines of the scale: every two semitones from 100 Hz; every sixth is an octave and labelled. */
+const PITCH_GRID = Array.from({ length: 17 }, (_, index) => ({
+  hertz: 100 * 2 ** ((index - 3) / 6),
+  octave: (index - 3) % 6 === 0,
+}));
+
+/** The 20 ms step whose mark covers a time. */
+export function pitchStepAt(seconds) {
+  return Math.floor((seconds - PITCH_CENTRE_S + FRAME_S / 2) / FRAME_S);
+}
+
+/**
+ * Where the lane puts things, in canvas pixels. `x(seconds)` and `y(hertz)`
+ * are not rounded; `mark(step, hertz)` is the rectangle of one candidate.
+ * The check of the page (check.mjs) computes the same rectangles.
+ */
+export function pitchLayout({ width, height, ratio, start, span }) {
+  const strip = Math.round(3 * ratio); // the activity strip along the top
+  const top = strip + Math.round(5 * ratio);
+  const bottom = height - Math.round(4 * ratio);
+  const thick = Math.max(2, Math.round(2 * ratio));
+  const least = Math.max(2, Math.round(2 * ratio)); // a mark is never narrower
+  const x = (seconds) => ((seconds - start) / span) * width;
+  const y = (hertz) => top + ((bottom - top) * Math.log(PITCH_HIGH_HZ / hertz)) / Math.log(PITCH_HIGH_HZ / PITCH_LOW_HZ);
+  const edge = (step) => Math.round(x(step * FRAME_S + PITCH_CENTRE_S - FRAME_S / 2));
+  const mark = (step, hertz) => {
+    const left = edge(step);
+    return { left, top: Math.round(y(hertz) - thick / 2), wide: Math.max(least, edge(step + 1) - left), thick };
+  };
+  return { strip, thick, x, y, edge, mark };
+}
+
+/**
+ * The periodicity candidates of the window: one unjoined mark per candidate,
+ * and along the top a strip over the steps inside activity spans, the only
+ * ones where a candidate is kept. `activity` holds [first, after last) pairs
+ * of steps. Returns the number of marks drawn.
+ */
+export function drawPitch(canvas, { pitch, activity, start, span }, colors) {
+  const { context, width, height, ratio } = prepare(canvas, colors.plot);
+  const layout = pitchLayout({ width, height, ratio, start, span });
+
+  // The scale first, so that no line or label covers a mark.
+  context.font = `${11 * ratio}px ${FONT}`;
+  context.textAlign = "left";
+  context.textBaseline = "bottom";
+  for (const { hertz, octave } of PITCH_GRID) {
+    const y = Math.round(layout.y(hertz));
+    context.fillStyle = octave ? colors.muted : colors.line;
+    context.globalAlpha = octave ? 0.55 : 1;
+    context.fillRect(0, y, width, 1);
+    if (octave) {
+      context.globalAlpha = 1;
+      context.fillText(`${Math.round(hertz)} Hz`, 6 * ratio, y - ratio);
+    }
+  }
+  context.globalAlpha = 1;
+
+  context.fillStyle = colors.activity;
+  for (let index = 0; index < activity.length; index += 2) {
+    const left = Math.max(0, layout.edge(activity[index]));
+    const right = Math.min(width, layout.edge(activity[index + 1]));
+    if (right > left) context.fillRect(left, 0, right - left, layout.strip);
+  }
+
+  context.fillStyle = colors.ink;
+  const first = Math.max(0, pitchStepAt(start) - 1);
+  const last = Math.min(pitch.length - 1, pitchStepAt(start + span) + 1);
+  let marks = 0;
+  for (let step = first; step <= last; step++) {
+    const hertz = pitch[step];
+    if (!Number.isFinite(hertz)) continue;
+    const { left, top, wide, thick } = layout.mark(step, hertz);
+    context.fillRect(left, top, wide, thick);
+    marks += 1;
+  }
+  return marks;
 }
 
 /** Tick marks and times for the window. */
