@@ -63,7 +63,10 @@ try {
   // Reading the model here reports a damaged one before any file is chosen.
   const about = model ? core.model(model) : null;
   const entries = model && wordList ? core.words(wordList) : 0;
-  self.postMessage({ type: "ready", model: about, words: entries });
+  // The model's SHA-256, so that annotations can say which model's candidates they judge.
+  const hex = (buffer) => Array.from(new Uint8Array(buffer), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  const modelSha = model && globalThis.crypto?.subtle ? hex(await crypto.subtle.digest("SHA-256", model)) : null;
+  self.postMessage({ type: "ready", model: about, words: entries, modelSha });
 } catch (error) {
   self.postMessage({ type: "failed", message: reason(error) });
 }

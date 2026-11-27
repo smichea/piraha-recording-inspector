@@ -77,11 +77,18 @@
         <span id="window-text" class="window-text"></span>
         <button id="zoom-out" type="button" aria-label="Show a longer stretch">−</button>
         <button id="zoom-in" type="button" aria-label="Show a shorter stretch">+</button>
+        <label class="inline"><input id="loop" type="checkbox"> Loop</label>
+        <label class="inline">Speed
+          <select id="rate" aria-label="Playback speed">
+            <option value="1">1×</option><option value="0.75">0.75×</option><option value="0.5">0.5×</option>
+          </select>
+        </label>
         <button id="play-window" type="button">Play this stretch</button>
       </div>
 
       <div class="timeline">
         <div class="labels" aria-hidden="true">
+          <div class="label-words">Transcription</div>
           <div id="word-lane-label" class="label-words">Words</div>
           <div id="letter-lane-label" class="label-letters">Phonemes</div>
           <div id="score-labels" class="label-scores"></div>
@@ -90,17 +97,64 @@
           <div class="label-axis">Time</div>
         </div>
         <div id="detail" class="plots" tabindex="0" role="group"
-             aria-label="Detail. Click to move the playback position, or on a word candidate to hear it; arrow keys move by a tenth of a second; plus and minus change the stretch shown. The periodicity candidates drawn here are the rows of the result file f0.tsv.">
+             aria-label="Detail. Click to move the playback position, or on a word candidate to hear it; arrow keys move by a tenth of a second; plus and minus change the stretch shown. Shift and drag selects a stretch; the keys [ and ] set its start and end at the playback position, T transcribes it, L switches looping. With a word candidate chosen, Y, N and U mark it right, wrong or unsure. The periodicity candidates drawn here are the rows of the result file f0.tsv.">
+          <canvas id="detail-transcription" class="plot-words"></canvas>
           <canvas id="detail-words" class="plot-words"></canvas>
           <canvas id="detail-letters" class="plot-letters"></canvas>
           <canvas id="detail-scores" class="plot-scores"></canvas>
           <canvas id="detail-pitch" class="plot-pitch"></canvas>
           <canvas id="detail-envelope" class="plot-detail-envelope"></canvas>
           <canvas id="detail-axis" class="plot-axis"></canvas>
+          <div id="selection" class="selection" hidden></div>
           <div id="detail-cursor" class="cursor"></div>
         </div>
       </div>
       <p id="detail-readout" class="readout"></p>
+      <section id="annotations" class="annotations" aria-labelledby="annotations-title">
+        <h4 id="annotations-title">Your annotations</h4>
+        <div class="annotation-tools">
+          <button id="add-interval" type="button" disabled>Transcribe the selection</button>
+          <span id="selection-text" class="hint">Hold Shift and drag over the plots to select a stretch.</span>
+        </div>
+        <form id="interval-editor" class="interval-editor" hidden>
+          <label>From <input id="interval-start" type="number" step="0.01" min="0" required> s</label>
+          <label>to <input id="interval-end" type="number" step="0.01" min="0" required> s</label>
+          <label class="wide">What is said
+            <input id="interval-text" type="text" lang="myp" spellcheck="false" autocapitalize="off" autocomplete="off" required>
+          </label>
+          <span class="insert">
+            <button id="insert-glottal" type="button" aria-label="Insert a glottal stop">ʔ</button>
+            <button id="insert-acute" type="button" aria-label="Put an acute accent on the letter before">◌́</button>
+          </span>
+          <output id="interval-reading" class="wide hint" for="interval-text"></output>
+          <label class="wide">Translation <input id="interval-translation" type="text" autocomplete="off"></label>
+          <label class="wide">Note <input id="interval-note" type="text" autocomplete="off"></label>
+          <span class="wide">
+            <button id="interval-save" type="submit">Save the stretch</button>
+            <button id="interval-delete" type="button">Delete</button>
+            <button id="interval-cancel" type="button">Cancel</button>
+          </span>
+        </form>
+        <p id="annotation-message" class="error" role="alert" hidden></p>
+        <div id="interval-table" class="word-table" hidden>
+          <table>
+            <thead><tr><th>Hear</th><th>What is said</th><th>Read as</th><th>Translation</th><th>Change</th></tr></thead>
+            <tbody id="interval-rows"></tbody>
+          </table>
+        </div>
+        <div class="annotation-tools">
+          <button id="save-annotations" type="button">Save annotations</button>
+          <label class="button-like" for="open-annotations">Open annotations</label>
+          <input id="open-annotations" class="visually-hidden" type="file" accept=".json,application/json">
+          <button id="export-textgrid" type="button">Praat TextGrid</button>
+          <button id="export-eaf" type="button">ELAN file</button>
+          <span id="unsaved" class="unsaved" hidden>Unsaved changes</span>
+        </div>
+        <p class="note">What you mark and type stays in this page until you save it as a file. The page keeps
+          nothing when it is closed, and sends nothing anywhere. The Praat and ELAN files carry your stretches
+          and, with the model, its candidates at the fit chosen below; only the annotation file can be opened
+          here again.</p>
+      </section>
       <p id="pitch-note" class="note">Periodicity candidates: each mark is a row of f0.tsv, a rate at which
         54 ms of sound, voice or not, nearly repeats itself, found by an autocorrelation and drawn at the middle
         of those 54 ms. The page draws the rows as they are, without smoothing or joining them. They are not
@@ -115,9 +169,10 @@
         <label for="fit">Word candidates with a fit of at least <output id="fit-value" for="fit"></output></label>
         <input id="fit" type="range" min="-0.7" max="-0.05" step="0.05" value="-0.45">
         <span id="word-count" class="hint"></span>
+        <span id="review-count" class="hint"></span>
         <div id="word-table" class="word-table">
           <table>
-            <thead><tr><th>Hear</th><th>Entry</th><th>Gloss in the word list</th><th>Fit</th></tr></thead>
+            <thead><tr><th>Hear</th><th>Entry</th><th>Gloss in the word list</th><th>Your verdict</th><th>Fit</th></tr></thead>
             <tbody id="word-rows"></tbody>
           </table>
         </div>

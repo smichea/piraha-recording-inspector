@@ -10,6 +10,7 @@ import {
   spectrogramImage,
   themeColors,
 } from "./draw.js";
+import { createAnnotationView } from "./annotate.js";
 import { createPhonemeView } from "./phonemes.js";
 
 const $ = (id) => document.getElementById(id);
@@ -30,6 +31,7 @@ const view = {
   image: null,
   url: null,
   stopAt: null, // where a stretch being played ends
+  loopFrom: null, // where that stretch began
   model: null, // the phoneme model's own description, when the page has one
 };
 
@@ -55,6 +57,7 @@ const worker = new Worker(URL.createObjectURL(new Blob([workerSource], { type: "
 worker.addEventListener("message", ({ data }) => {
   if (data.type === "ready") {
     view.model = data.model;
+    annotationView.setModel(data.modelSha ?? null);
     phonemeView.describe(data.model, data.words);
     $("model-line").hidden = !data.model;
     setState("ready", "Ready.");
@@ -81,6 +84,7 @@ worker.addEventListener("error", () => {
 
 function analyse(file) {
   if (root.dataset.state === "loading" || root.dataset.state === "failed") return;
+  if (annotationView.unsaved() && !confirm("Your annotations of this recording are not saved. Analyse another file and lose them?")) return;
   view.request += 1;
   view.file = file;
   view.started = performance.now();
@@ -159,7 +163,17 @@ function showResult(data) {
   phonemeView.show(data, view.duration, view.peak);
   setState("done", `Analysed in ${seconds.toFixed(1)} s.`);
   // For automated checks of the page.
-  globalThis.recordingInspector = { summary, texts: data.texts, seconds, model: view.model };
+  globalThis.recordingInspector = {
+    summary,
+    texts: data.texts,
+    seconds,
+    model: view.model,
+    /** The annotation file and its Praat and ELAN exports, as texts. */
+    exports: () => annotationView.exports(),
+    get unsaved() {
+      return annotationView.unsaved();
+    },
+  };
 }
 
 function buildChannelControls(channels) {
@@ -246,8 +260,12 @@ function moveCursor() {
 
 function followPlayback() {
   if (view.stopAt !== null && player.currentTime >= view.stopAt) {
-    view.stopAt = null;
-    player.pause();
+    if ($("loop").checked && view.loopFrom !== null && !player.paused) {
+      player.currentTime = view.loopFrom; // again from the stretch's start, until paused
+    } else {
+      view.stopAt = null;
+      player.pause();
+    }
   }
   moveCursor();
   if (!player.paused && !player.ended) requestAnimationFrame(followPlayback);
@@ -259,22 +277,26 @@ for (const type of ["play", "seeking", "seeked", "timeupdate", "loadedmetadata"]
 
 function seek(seconds) {
   view.stopAt = null;
+  view.loopFrom = null;
   player.currentTime = Math.min(Math.max(seconds, 0), view.duration);
   moveCursor();
 }
 
-/** Play from one time to another and stop there. */
+/** Play from one time to another and stop there, or, with "Loop" ticked, start again from the first. */
 function playSpan(from, to) {
   seek(from);
+  view.loopFrom = Math.max(0, from);
   view.stopAt = Math.min(to, view.duration);
   player.play();
 }
 
 player.addEventListener("pause", () => {
   view.stopAt = null;
+  view.loopFrom = null;
 });
 
 const phonemeView = createPhonemeView({ player, seek, playSpan });
+const annotationView = createAnnotationView({ player, detail: phonemeView, playSpan, download });
 
 function timeAt(event) {
   const box = plots.getBoundingClientRect();
@@ -473,7 +495,7 @@ function buildExports(texts) {
 }
 
 function download(name, text) {
-  const type = name.endsWith(".json") ? "application/json" : "text/tab-separated-values";
+  const type = name.endsWith(".json") ? "application/json" : name.endsWith(".tsv") ? "text/tab-separated-values" : name.endsWith(".eaf") ? "application/xml" : "text/plain";
   const url = URL.createObjectURL(new Blob([text], { type }));
   const link = element("a");
   link.href = url;

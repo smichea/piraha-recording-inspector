@@ -94,47 +94,83 @@ export function drawLetters(canvas, { letters, start, span }, colors) {
 }
 
 /**
- * The word candidates as boxes from their first to their last phoneme, with
- * the entry's phonemes and gloss. Returns the boxes in CSS pixels, for clicks.
+ * Stretches as boxes with a title and a line under it. `items` are in order
+ * of time: { start, end, title, subtitle, active, mark, item }. `mark` is a
+ * person's verdict ("right", "wrong", "unsure") or nothing; it is shown by a
+ * sign in the box's corner and by the box's top edge (solid, dashed,
+ * dotted), not by colour. Returns the boxes in CSS pixels, for clicks.
  */
-export function drawWords(canvas, { words, start, span, active }, colors) {
+function drawBoxes(canvas, { items, start, span }, colors) {
   const { context, width, height, ratio } = prepare(canvas, colors.plot);
   const boxes = [];
   const pad = 4 * ratio;
+  const signs = { right: "✓", wrong: "✗", unsure: "?" };
   context.textBaseline = "middle";
-  context.textAlign = "left";
-  for (const word of words) {
-    if (word.end < start) continue;
-    if (word.start > start + span) break;
-    // A phoneme is heard a little before and after the row where it scores.
-    const x0 = ((word.start - 0.04 - start) / span) * width;
-    const x1 = ((word.end + 0.06 - start) / span) * width;
+  for (const { start: from, end: to, title, subtitle, active, mark, item } of items) {
+    if (to < start) continue;
+    if (from > start + span) break;
+    const x0 = ((from - start) / span) * width;
+    const x1 = ((to - start) / span) * width;
     const top = 3 * ratio;
     const tall = height - 6 * ratio;
-    context.globalAlpha = word === active ? 0.3 : 0.14;
+    context.globalAlpha = active ? 0.3 : 0.14;
     context.fillStyle = colors.accent;
     context.fillRect(x0, top, x1 - x0, tall);
     context.globalAlpha = 1;
-    context.fillRect(x0, top, x1 - x0, 2 * ratio);
+    if (mark === "wrong" || mark === "unsure") {
+      const dash = (mark === "wrong" ? 5 : 2) * ratio;
+      for (let x = x0; x < x1; x += 2 * dash) context.fillRect(x, top, Math.min(dash, x1 - x), 2 * ratio);
+    } else {
+      context.fillRect(x0, top, x1 - x0, 2 * ratio);
+    }
     context.fillRect(x0, top, ratio, tall);
     context.fillRect(x1 - ratio, top, ratio, tall);
-    boxes.push({ left: x0 / ratio, right: x1 / ratio, word });
+    boxes.push({ left: x0 / ratio, right: x1 / ratio, item });
 
-    const room = x1 - x0 - 2 * pad;
+    const sign = signs[mark];
+    const room = x1 - x0 - 2 * pad - (sign ? 12 * ratio : 0);
+    if (sign && x1 - x0 >= 14 * ratio) {
+      context.fillStyle = colors.ink;
+      context.font = `700 ${12 * ratio}px ${FONT}`;
+      context.textAlign = "right";
+      context.fillText(sign, x1 - pad, top + tall * 0.34);
+    }
     if (room < 12 * ratio) continue;
     context.save();
     context.beginPath();
     context.rect(x0 + pad, top, room, tall);
     context.clip();
+    context.textAlign = "left";
     context.fillStyle = colors.ink;
     context.font = `600 ${13 * ratio}px ${FONT}`;
-    context.fillText(word.phonemes, x0 + pad, top + tall * 0.34);
+    context.fillText(title, x0 + pad, top + tall * 0.34);
     context.fillStyle = colors.muted;
     context.font = `${11 * ratio}px ${FONT}`;
-    context.fillText(word.gloss, x0 + pad, top + tall * 0.74);
+    context.fillText(subtitle, x0 + pad, top + tall * 0.74);
     context.restore();
   }
   return boxes;
+}
+
+/**
+ * The word candidates as boxes from their first to their last phoneme, with
+ * the entry's phonemes and gloss. `verdict(word)` gives a person's verdict
+ * on a candidate, if any. Returns the boxes in CSS pixels, for clicks.
+ */
+export function drawWords(canvas, { words, start, span, active, verdict = () => null }, colors) {
+  // A phoneme is heard a little before and after the row where it scores.
+  const items = words.map((word) => ({
+    start: word.start - 0.04, end: word.end + 0.06, title: word.phonemes, subtitle: word.gloss, active: word === active, mark: verdict(word), item: word,
+  }));
+  return drawBoxes(canvas, { items, start, span }, colors).map(({ left, right, item }) => ({ left, right, word: item }));
+}
+
+/** The transcribed stretches of an annotation document, with their translation. `chosen` is an index or -1. */
+export function drawIntervals(canvas, { intervals, chosen, start, span }, colors) {
+  const items = intervals.map((interval, index) => ({
+    start: interval.start_s, end: interval.end_s, title: interval.text, subtitle: interval.translation, active: index === chosen, mark: null, item: index,
+  }));
+  return drawBoxes(canvas, { items, start, span }, colors).map(({ left, right, item }) => ({ left, right, index: item }));
 }
 
 // ------------------------------------------------- periodicity candidates
