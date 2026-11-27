@@ -69,6 +69,10 @@ export function createPhonemeView({ player, seek, playSpan }) {
 
   function describe(about, entries) {
     state.model = about;
+    // The slider starts where the model's description says, when it says so.
+    const slider = $("fit");
+    const initial = Number(about?.initial_fit);
+    if (Number.isFinite(initial) && initial >= Number(slider.min) && initial <= Number(slider.max)) slider.value = String(initial);
     const card = $("model-card");
     card.replaceChildren();
     if (!about) return;

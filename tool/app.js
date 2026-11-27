@@ -30,6 +30,7 @@ const view = {
   image: null,
   url: null,
   stopAt: null, // where a stretch being played ends
+  model: null, // the phoneme model's own description, when the page has one
 };
 
 function setState(state, status) {
@@ -53,6 +54,7 @@ const worker = new Worker(URL.createObjectURL(new Blob([workerSource], { type: "
 
 worker.addEventListener("message", ({ data }) => {
   if (data.type === "ready") {
+    view.model = data.model;
     phonemeView.describe(data.model, data.words);
     $("model-line").hidden = !data.model;
     setState("ready", "Ready.");
@@ -157,7 +159,7 @@ function showResult(data) {
   phonemeView.show(data, view.duration, view.peak);
   setState("done", `Analysed in ${seconds.toFixed(1)} s.`);
   // For automated checks of the page.
-  globalThis.recordingInspector = { summary, texts: data.texts, seconds };
+  globalThis.recordingInspector = { summary, texts: data.texts, seconds, model: view.model };
 }
 
 function buildChannelControls(channels) {
