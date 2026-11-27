@@ -23,6 +23,22 @@
 <div class="prose">
   <h1>News</h1>
 
+  <article class="news-item" id="2026-11-27-initial-fit">
+    <p class="dated">27 November 2026</p>
+    <h2>Fewer, surer word candidates to start with; and a round of training that did not help</h2>
+    <p class="lede">The <a href="tool/">recording inspector</a> now opens with a stricter setting for its word
+      candidates. The model itself is unchanged.</p>
+    <p>The slider that sets how well a stretch must fit a word of the list started at −0.45, a value chosen by
+      hand for the first model. It now starts at −0.30, chosen on recordings of two speakers set aside for such
+      choices: the largest set of candidates of which at least 40 % fall on the right word. On recordings of two
+      other speakers, 34 of the 80 candidates shown at that setting are right (42 %), against 41 of 121 (34 %)
+      before. Most candidates are still wrong, and the slider still goes down to −0.7.</p>
+    <p>We also tried a third round of training, in which the published model places the words for its own
+      successor. With three trainings of each variant and a rule written beforehand, neither variant did better
+      than the published model on the speakers set aside; one did worse. The published model stays. All these
+      figures are measured against labels made by machine, not by a person.</p>
+  </article>
+
   <article class="news-item" id="2026-11-23-alignment-fix">
     <p class="dated">23 November 2026</p>
     <h2>A better phoneme model, after a fault in the training labels was found</h2>
