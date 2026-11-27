@@ -691,3 +691,131 @@ button:disabled {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
+
+/* Annotations: what a person marks and types. */
+.annotations {
+  margin: 0.8rem 0;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.annotations h4 {
+  margin: 0 0 0.5rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.annotation-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.6rem;
+  margin: 0.4rem 0;
+  font-size: 0.9rem;
+}
+
+.button-like {
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--ink);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.annotation-tools:focus-within .button-like {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.unsaved {
+  font-weight: 600;
+}
+
+.interval-editor {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 12rem)) auto;
+  gap: 0.5rem 0.8rem;
+  align-items: end;
+  margin: 0.5rem 0;
+  font-size: 0.9rem;
+}
+
+.interval-editor .wide {
+  grid-column: 1 / 3;
+}
+
+.interval-editor input[type="text"],
+.interval-editor input[type="number"] {
+  padding: 0.3rem 0.4rem;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+}
+
+.interval-editor input[type="text"] {
+  display: block;
+  width: 100%;
+}
+
+.interval-editor input[type="number"] {
+  width: 6.5rem;
+}
+
+.inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.9rem;
+}
+
+.inline select {
+  padding: 0.15rem 0.25rem;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+}
+
+td.verdict {
+  white-space: nowrap;
+}
+
+td.verdict button {
+  min-width: 1.9rem;
+  margin-right: 0.2rem;
+  padding: 0.1rem 0.4rem;
+}
+
+td.verdict button[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+/* The stretch selected in the detail view. */
+.selection {
+  position: absolute;
+  top: 0;
+  bottom: var(--axis);
+  border: 1px dashed var(--ink);
+  border-width: 0 1px;
+  background: color-mix(in srgb, var(--ink) 10%, transparent);
+  pointer-events: none;
+}
+
+@media (max-width: 640px) {
+  .interval-editor {
+    grid-template-columns: 1fr;
+  }
+  .interval-editor .wide {
+    grid-column: 1;
+  }
+}

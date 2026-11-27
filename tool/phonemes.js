@@ -64,6 +64,9 @@ export function createPhonemeView({ player, seek, playSpan }) {
     active: null,
     queued: false,
   };
+  // The annotation view (annotate.js), once it has attached itself: it draws its lane with this view's
+  // window and takes the clicks and keys that are its own.
+  let hooks = null;
 
   // ------------------------------------------------------------ the model
 
@@ -135,6 +138,7 @@ export function createPhonemeView({ player, seek, playSpan }) {
     $("pitch-scale").textContent =
       wav.channels > 1 ? `channel ${channel} of ${wav.channels} · 70 to 500 Hz, log scale` : "70 to 500 Hz, log scale";
     section.hidden = false;
+    hooks?.show(data);
     filter();
     // Open on the first candidate, of a phoneme or else of periodicity, rather than on leading silence.
     const first = model ? state.letters[0]?.time : data.pitch.findIndex(Number.isFinite) * FRAME_S + PITCH_CENTRE_S;
@@ -165,6 +169,7 @@ export function createPhonemeView({ player, seek, playSpan }) {
         cell,
         element("td", word.phonemes, "phoneme-text"),
         element("td", word.gloss),
+        hooks?.verdictCell(word) ?? element("td"),
         element("td", signed(word.fit, 2)),
       );
       body.append(row);
@@ -177,6 +182,7 @@ export function createPhonemeView({ player, seek, playSpan }) {
           ? `${total.toLocaleString("en-US")} word candidates; the first ${LISTED} are listed.`
           : `${total.toLocaleString("en-US")} word candidate${total > 1 ? "s" : ""}.`;
     $("word-table").hidden = total === 0;
+    hooks?.reviewed();
     queue();
   }
 
@@ -244,7 +250,8 @@ export function createPhonemeView({ player, seek, playSpan }) {
     const window = { start: state.start, span: state.span };
     state.boxes = $("detail-words").hidden
       ? []
-      : drawWords($("detail-words"), { words: state.shown, active: state.active, ...window }, colors);
+      : drawWords($("detail-words"), { words: state.shown, active: state.active, verdict: hooks?.verdictOf, ...window }, colors);
+    hooks?.draw(window, colors);
     if (data.scores) {
       drawLetters($("detail-letters"), { letters: state.letters, ...window }, colors);
       drawScores($("detail-scores"), { scores: data.scores, ...window }, colors);
@@ -296,6 +303,7 @@ export function createPhonemeView({ player, seek, playSpan }) {
 
   plots.addEventListener("click", (event) => {
     if (!state.data) return;
+    if (hooks?.click(event, timeAt(event))) return;
     const word = wordAt(event);
     if (word) choose(word);
     else seek(timeAt(event));
@@ -355,6 +363,10 @@ export function createPhonemeView({ player, seek, playSpan }) {
 
   plots.addEventListener("keydown", (event) => {
     if (!state.data) return;
+    if (hooks?.key(event)) {
+      event.preventDefault();
+      return;
+    }
     if (event.key === "ArrowLeft") seek(player.currentTime - (event.shiftKey ? 1 : 0.1));
     else if (event.key === "ArrowRight") seek(player.currentTime + (event.shiftKey ? 1 : 0.1));
     else if (event.key === " ") player.paused ? player.play() : player.pause();
@@ -375,7 +387,23 @@ export function createPhonemeView({ player, seek, playSpan }) {
   // The lane labels of the score plot: one per phoneme.
   $("score-labels").replaceChildren(...OUTPUTS.slice(1).map((phoneme) => element("span", phoneme)));
 
-  return { describe, show, follow, render: queue, hide };
+  return {
+    describe,
+    show,
+    follow,
+    render: queue,
+    hide,
+    attach: (given) => (hooks = given),
+    timeAt,
+    filter,
+    window: () => ({ start: state.start, span: state.span }),
+    active: () => state.active,
+    /** What an export takes from the model: the word candidates shown and the phoneme candidates, or null. */
+    candidates: () => ({
+      words: state.data && "words.tsv" in state.data.texts ? state.shown : null,
+      letters: state.data?.scores ? state.letters : null,
+    }),
+  };
 }
 
 export { FIRST_S, STEP_S };
